@@ -9,7 +9,7 @@ import (
 
 type store map[string]*Transaction
 
-type accounts map[string]int
+type accounts map[string]bool
 
 func (s store) Get(txid string) (*Transaction, error) {
 	t := s[txid]
@@ -27,20 +27,17 @@ func (s store) Append(t *Transaction) (string, error) {
 	return t.Id, nil
 }
 
-func (a accounts) Indexes(nn []string) ([]int, error) {
-	result := make([]int, len(nn))
+func (a accounts) Exists(nn []string) ([]bool, error) {
+	result := make([]bool, len(nn))
 	for i, n := range nn {
-		result[i] = -1
-		if idx, ok := a[n]; ok {
-			result[i] = idx
-		}
+		result[i] = a[n]
 	}
 	return result, nil
 }
 
 func TestSave(t *testing.T) {
 	s := store{}
-	r := NewTxsRepository(s, accounts{"1": 0, "2": 1})
+	r := NewTxsRepository(s, accounts{"1": true, "2": true})
 	tx, err := r.Save(&Transaction{
 		Debits:  []Entry{{"1", 1}},
 		Credits: []Entry{{"2", 1}},

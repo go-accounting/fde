@@ -37,7 +37,7 @@ type Store interface {
 }
 
 type AccountsRepository interface {
-	Indexes([]string) ([]int, error)
+	Exists([]string) ([]bool, error)
 }
 
 func NewTxsRepository(s Store, ar AccountsRepository) *TxsRepository {
@@ -131,11 +131,11 @@ func (entry *Entry) ValidationMessage(tr *TxsRepository) string {
 	if entry.Account == "" {
 		return "The account must be informed for each entry"
 	}
-	idx, err := tr.ar.Indexes([]string{entry.Account})
+	ok, err := tr.ar.Exists([]string{entry.Account})
 	if err != nil {
 		return err.Error()
 	}
-	if idx[0] == -1 {
+	if !ok[0] {
 		return "Account not found"
 	}
 	// The following code is not necessary if using mcesar.io/coa because we can use the
