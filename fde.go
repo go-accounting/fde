@@ -2,28 +2,25 @@ package fde
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 )
 
 type Transaction struct {
-	Id      string    `json:"id"`
-	Debits  []Entry   `json:"debits"`
-	Credits []Entry   `json:"credits"`
+	Id      string    `json:"_id"`
+	Debits  Entries   `json:"debits"`
+	Credits Entries   `json:"credits"`
 	Date    time.Time `json:"date"`
 	Memo    string    `json:"memo"`
 	Tags    []string  `json:"tags"`
 	User    string    `json:"user"`
 	AsOf    time.Time `json:"timestamp"`
 	Removes string    `json:"removes"`
-	// AccountsKeysAsString []string  `json:"-"`
-	// Moment               int64     `datastore:"-" json:"-"`
 }
 
 type Entry struct {
-	Account string  `json:"account"`
-	Value   float64 `json:"value"`
+	Account string `json:"account"`
+	Value   int64  `json:"value"`
 }
 
 type TxsRepository struct {
@@ -39,6 +36,8 @@ type Store interface {
 type AccountsRepository interface {
 	Exists([]string) ([]bool, error)
 }
+
+type Entries []Entry
 
 func NewTxsRepository(s Store, ar AccountsRepository) *TxsRepository {
 	return &TxsRepository{s, ar}
@@ -110,45 +109,48 @@ func (transaction *Transaction) ValidationMessage(tr *TxsRepository) string {
 	if len(strings.TrimSpace(transaction.Memo)) == 0 {
 		return "The memo must be informed"
 	}
-	ev := func(arr []Entry) (string, float64) {
-		sum := 0.0
-		for _, e := range arr {
-			if m := e.ValidationMessage(tr); len(m) > 0 {
-				return m, 0.0
-			}
-			sum += e.Value
-		}
-		return "", sum
-	}
-	var debitsSum, creditsSum float64
-	var m string
-	if m, debitsSum = ev(transaction.Debits); len(m) > 0 {
+	if m := transaction.Debits.ValidationMessage(tr); len(m) > 0 {
 		return m
 	}
-	if m, creditsSum = ev(transaction.Credits); len(m) > 0 {
+	if m := transaction.Credits.ValidationMessage(tr); len(m) > 0 {
 		return m
 	}
-	if math.Trunc(debitsSum*100+0.5) != math.Trunc(creditsSum*100+0.5) {
+	if transaction.Debits.sum() != transaction.Credits.sum() {
 		return "The sum of debit values must be equals to the sum of credit values"
 	}
 	return ""
 }
 
-func (entry *Entry) ValidationMessage(tr *TxsRepository) string {
-	if entry.Account == "" {
-		return "The account must be informed for each entry"
+func (ee Entries) sum() int64 {
+	result := int64(0)
+	for _, e := range ee {
+		result += e.Value
 	}
-	ok, err := tr.ar.Exists([]string{entry.Account})
+	return result
+}
+
+func (ee Entries) ValidationMessage(tr *TxsRepository) string {
+	ids := make([]string, len(ee))
+	for i, entry := range ee {
+		if entry.Account == "" {
+			return "The account must be informed for each entry"
+		}
+		ids[i] = entry.Account
+	}
+	oks, err := tr.ar.Exists(ids)
 	if err != nil {
 		return err.Error()
 	}
-	if !ok[0] {
-		return "Account not found"
+	for i, ok := range oks {
+		if !ok {
+			return fmt.Sprintf("The account '%v' was not found or it does not have the correct type",
+				ids[i])
+		}
 	}
-	// The following code is not necessary if using mcesar.io/coa because we can use the
+	// The following code is not necessary if using github.com/go-accounting/coa because we can use the
 	// method Indexes informing the tag surrounded the method by a adapter
-	// if !collections.Contains(account.Tags, "analytic") {
-	// 	return "The account must be analytic"
+	// if !collections.Contains(account.Tags, "detail") {
+	// 	return "The account type must be detail"
 	// }
 	return ""
 }
