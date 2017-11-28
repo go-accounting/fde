@@ -21,10 +21,14 @@ func (s store) Get(txid string) (*Transaction, error) {
 	return result, nil
 }
 
-func (s store) Append(t *Transaction) (string, error) {
-	t.Id = strconv.Itoa(len(s))
-	s[t.Id] = t
-	return t.Id, nil
+func (s store) Append(tt ...*Transaction) ([]string, error) {
+	ids := make([]string, len(tt))
+	for i, t := range tt {
+		t.Id = strconv.Itoa(len(s))
+		s[t.Id] = t
+		ids[i] = t.Id
+	}
+	return ids, nil
 }
 
 func (a accounts) Exists(nn []string) ([]bool, error) {
@@ -48,11 +52,11 @@ func TestSave(t *testing.T) {
 	if len(s) != 1 {
 		t.Errorf("Expected 1 but was %v", len(s))
 	}
-	if tx.Id != "0" {
-		t.Errorf("Expected 0 but was %v", tx.Id)
+	if tx[0].Id != "0" {
+		t.Errorf("Expected 0 but was %v", tx[0].Id)
 	}
-	tx.Memo = "mm"
-	_, err = r.Save(tx)
+	tx[0].Memo = "mm"
+	_, err = r.Save(tx[0])
 	if len(s) != 3 {
 		t.Errorf("Expected 3 but was %v", len(s))
 	}

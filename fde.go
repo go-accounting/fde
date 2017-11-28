@@ -33,7 +33,7 @@ type TxsRepository struct {
 
 type Store interface {
 	Get(txid string) (*Transaction, error)
-	Append(*Transaction) (string, error)
+	Append(...*Transaction) ([]string, error)
 }
 
 type AccountsRepository interface {
@@ -44,22 +44,28 @@ func NewTxsRepository(s Store, ar AccountsRepository) *TxsRepository {
 	return &TxsRepository{s, ar}
 }
 
-func (tr *TxsRepository) Save(t *Transaction) (*Transaction, error) {
-	if msg := t.ValidationMessage(tr); msg != "" {
-		return nil, fmt.Errorf(msg)
-	}
-	if t.Id != "" {
-		_, err := tr.Delete(t.Id)
-		if err != nil {
-			return nil, err
+func (tr *TxsRepository) Save(tt ...*Transaction) ([]*Transaction, error) {
+	rr := make([]Transaction, len(tt))
+	result := make([]*Transaction, len(tt))
+	for i, t := range tt {
+		if msg := t.ValidationMessage(tr); msg != "" {
+			return nil, fmt.Errorf(msg)
 		}
+		if t.Id != "" {
+			_, err := tr.Delete(t.Id)
+			if err != nil {
+				return nil, err
+			}
+		}
+		result[i] = &rr[i]
+		*result[i] = *t
 	}
-	result := &Transaction{}
-	*result = *t
-	var err error
-	result.Id, err = tr.s.Append(t)
+	ids, err := tr.s.Append(tt...)
 	if err != nil {
 		return nil, err
+	}
+	for i, id := range ids {
+		result[i].Id = id
 	}
 	return result, nil
 }
@@ -83,10 +89,11 @@ func (tr *TxsRepository) Delete(txid string) (*Transaction, error) {
 	tx.Debits = deb
 	tx.Credits = cre
 	tx.Removes = txid
-	tx.Id, err = tr.s.Append(tx)
+	ids, err := tr.s.Append(tx)
 	if err != nil {
 		return nil, err
 	}
+	tx.Id = ids[0]
 	return tx, nil
 }
 
