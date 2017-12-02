@@ -69,7 +69,12 @@ func (tr *TxsRepository) Save(tt ...*Transaction) ([]*Transaction, error) {
 	return result, nil
 }
 
+func (tr *TxsRepository) Get(txid string) (*Transaction, error) {
+	return tr.s.Get(txid)
+}
+
 func (tr *TxsRepository) Delete(txid string) (*Transaction, error) {
+	// TODO: prevent multiple deletes on same transaction
 	tx, err := tr.s.Get(txid)
 	if err != nil {
 		return nil, err
